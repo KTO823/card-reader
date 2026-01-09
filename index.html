@@ -19,21 +19,27 @@
             75% { transform: translateX(5px); }
         }
         .animate-shake { animation: shake 0.3s ease-in-out; }
+        
+        .glass-effect {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
     </style>
 </head>
-<body class="bg-slate-900">
+<body class="bg-slate-900 selection:bg-blue-500/30">
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect } = React;
+        const { useState, useEffect, useCallback } = React;
 
-        // 簡單的 Lucide 圖標組件封裝
+        // 圖標組件：確保在狀態改變導致重新渲染後圖標仍能正確顯示
         const Icon = ({ name, className }) => {
             useEffect(() => {
                 if (window.lucide) {
                     window.lucide.createIcons();
                 }
-            }, [name]);
+            });
             return <i data-lucide={name} className={className}></i>;
         };
 
@@ -45,22 +51,25 @@
 
             const API_BASE = 'http://127.0.0.1:5000/api';
 
-            const checkHealth = async () => {
+            // 檢查後端健康狀態
+            const checkHealth = useCallback(async () => {
                 try {
                     const res = await fetch(`${API_BASE}/health`);
                     setBackendOnline(res.ok);
                 } catch {
                     setBackendOnline(false);
                 }
-            };
+            }, [API_BASE]);
 
             useEffect(() => {
                 checkHealth();
                 const interval = setInterval(checkHealth, 5000);
                 return () => clearInterval(interval);
-            }, []);
+            }, [checkHealth]);
 
             const readCard = async () => {
+                if (!backendOnline) return;
+                
                 setStatus('loading');
                 setError('');
                 try {
@@ -75,108 +84,130 @@
                         setStatus('error');
                     }
                 } catch (err) {
-                    setError('無法連線至本地後端，請確認 Python 程式已在電腦執行');
+                    setError('無法連線至本地後端，請確認 Python 程式已在電腦執行並開啟了 5000 端口');
                     setStatus('error');
                 }
             };
 
             return (
-                <div className="min-h-screen text-slate-100 flex items-center justify-center p-6 font-sans">
-                    <div className="max-w-md w-full">
-                        {/* Header */}
-                        <div className="flex items-center justify-between mb-8">
-                            <div className="flex items-center gap-3">
-                                <div className="p-3 bg-blue-600 rounded-2xl shadow-lg shadow-blue-500/20">
+                <div className="min-h-screen text-slate-100 flex flex-col items-center justify-center p-6 font-sans">
+                    <div className="max-w-md w-full space-y-8">
+                        {/* 頂部標題區域 */}
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                                <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl shadow-xl shadow-blue-500/20">
                                     <Icon name="cpu" className="w-8 h-8 text-white" />
                                 </div>
                                 <div>
-                                    <h1 className="text-xl font-bold tracking-tight text-white">IC Card Reader</h1>
+                                    <h1 className="text-2xl font-black tracking-tight text-white uppercase">IC Reader</h1>
                                     <div className="flex items-center gap-2">
-                                        <div className={`w-2 h-2 rounded-full ${backendOnline ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                                        <span className="text-xs text-slate-400 font-medium">
-                                            {backendOnline ? '本地驅動已連線' : '本地驅動未啟動'}
+                                        <span className={`flex h-2 w-2 rounded-full ${backendOnline ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></span>
+                                        <span className="text-xs text-slate-400 font-bold tracking-wider uppercase">
+                                            {backendOnline ? 'Local Bridge Active' : 'Bridge Offline'}
                                         </span>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Main Card */}
-                        <div className="bg-slate-800 border border-slate-700 rounded-3xl p-8 shadow-2xl">
-                            <div className="relative aspect-[1.58/1] w-full bg-gradient-to-br from-slate-700 to-slate-800 rounded-2xl mb-8 overflow-hidden border border-slate-600/50 flex flex-col items-center justify-center group">
-                                <div className="absolute top-4 right-6 text-slate-500 italic font-serif">SmartCard</div>
+                        {/* 主要操作卡片 */}
+                        <div className="glass-effect rounded-[2.5rem] p-8 shadow-2xl relative overflow-hidden">
+                            <div className="absolute top-0 right-0 p-8 opacity-10">
+                                <Icon name="wifi" className="w-24 h-24" />
+                            </div>
+
+                            {/* 卡片視覺模擬區 */}
+                            <div className={`relative aspect-[1.58/1] w-full bg-slate-800 rounded-3xl mb-8 overflow-hidden border transition-all duration-500 flex flex-col items-center justify-center group ${
+                                status === 'success' ? 'border-green-500/50 shadow-lg shadow-green-500/10' : 'border-slate-700'
+                            }`}>
+                                <div className="absolute top-4 right-6 text-slate-600 italic font-serif text-xs uppercase tracking-widest">Secure Chip</div>
                                 
                                 {status === 'success' ? (
-                                    <div className="flex flex-col items-center">
-                                        <Icon name="check-circle" className="w-16 h-16 text-green-400 mb-2" />
-                                        <span className="text-green-400 font-bold tracking-widest text-sm uppercase">Card Detected</span>
+                                    <div className="flex flex-col items-center scale-110 transition-transform">
+                                        <div className="bg-green-500/20 p-4 rounded-full mb-3">
+                                            <Icon name="check-circle" className="w-12 h-12 text-green-400" />
+                                        </div>
+                                        <span className="text-green-400 font-black tracking-widest text-xs uppercase">Card Authorized</span>
                                     </div>
                                 ) : status === 'loading' ? (
                                     <div className="flex flex-col items-center">
-                                        <Icon name="refresh-cw" className="w-16 h-16 text-blue-400 animate-spin mb-2" />
-                                        <span className="text-blue-400 font-medium">Reading...</span>
+                                        <Icon name="refresh-cw" className="w-16 h-16 text-blue-500 animate-spin mb-4" />
+                                        <span className="text-blue-400 font-bold animate-pulse text-xs uppercase tracking-widest">Scanning Hardware...</span>
                                     </div>
                                 ) : (
-                                    <div className="flex flex-col items-center opacity-40">
-                                        <Icon name="credit-card" className="w-20 h-20 text-slate-400 mb-2" />
-                                        <span className="text-sm">Waiting for action</span>
+                                    <div className="flex flex-col items-center opacity-30 group-hover:opacity-50 transition-opacity">
+                                        <Icon name="credit-card" className="w-24 h-24 text-slate-400 mb-2" />
+                                        <span className="text-xs font-bold uppercase tracking-tighter">Ready to Scan</span>
                                     </div>
                                 )}
                                 
-                                <div className="absolute bottom-4 left-6 flex gap-1">
-                                    {[1, 2, 3, 4].map(i => <div key={i} className="w-8 h-1 bg-slate-600 rounded-full"></div>)}
+                                <div className="absolute bottom-6 left-8 flex gap-2">
+                                    <div className="w-10 h-1.5 bg-slate-700 rounded-full"></div>
+                                    <div className="w-6 h-1.5 bg-slate-700 rounded-full"></div>
                                 </div>
                             </div>
 
-                            {/* Results Info */}
+                            {/* 顯示結果區域 */}
                             {status === 'success' && cardData && (
-                                <div className="space-y-4 mb-6">
-                                    <div className="bg-slate-900/50 rounded-xl p-4 border border-slate-700">
-                                        <p className="text-xs text-slate-500 uppercase font-bold mb-1">ATR Identifier</p>
-                                        <p className="font-mono text-blue-400 text-sm break-all tracking-tight">
+                                <div className="space-y-4 mb-8">
+                                    <div className="bg-slate-900/80 rounded-2xl p-5 border border-slate-700/50 group hover:border-blue-500/30 transition-colors">
+                                        <div className="flex items-center gap-2 mb-2 text-slate-500">
+                                            <Icon name="hash" className="w-3 h-3" />
+                                            <p className="text-[10px] uppercase font-black tracking-widest">Card ATR (Identifier)</p>
+                                        </div>
+                                        <p className="font-mono text-blue-400 text-sm break-all font-bold">
                                             {cardData.atr}
                                         </p>
                                     </div>
-                                    <div className="bg-slate-900/50 rounded-xl p-4 border border-slate-700">
-                                        <p className="text-xs text-slate-500 uppercase font-bold mb-1">Reader Device</p>
-                                        <p className="text-slate-300 text-sm">
+                                    <div className="bg-slate-900/80 rounded-2xl p-5 border border-slate-700/50 group hover:border-blue-500/30 transition-colors">
+                                        <div className="flex items-center gap-2 mb-2 text-slate-500">
+                                            <Icon name="monitor" className="w-3 h-3" />
+                                            <p className="text-[10px] uppercase font-black tracking-widest">Reader Source</p>
+                                        </div>
+                                        <p className="text-slate-300 text-sm font-medium">
                                             {cardData.reader}
                                         </p>
                                     </div>
                                 </div>
                             )}
 
-                            {/* Error Message */}
+                            {/* 錯誤訊息 */}
                             {status === 'error' && (
-                                <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 mb-6 flex items-start gap-3 animate-shake">
-                                    <Icon name="alert-circle" className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
-                                    <p className="text-sm text-red-200">{error}</p>
+                                <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-5 mb-8 flex items-start gap-4 animate-shake">
+                                    <div className="p-2 bg-red-500/20 rounded-lg">
+                                        <Icon name="alert-circle" className="w-5 h-5 text-red-400 shrink-0" />
+                                    </div>
+                                    <p className="text-xs text-red-200 leading-relaxed font-medium">{error}</p>
                                 </div>
                             )}
 
-                            {/* Action Button */}
+                            {/* 互動按鈕 */}
                             <button
                                 onClick={readCard}
-                                disabled={status === 'loading'}
-                                className={`w-full py-4 rounded-2xl font-bold text-lg transition-all transform active:scale-[0.98] flex items-center justify-center gap-2 ${
+                                disabled={status === 'loading' || !backendOnline}
+                                className={`w-full py-5 rounded-[1.5rem] font-black text-sm uppercase tracking-[0.2em] transition-all transform active:scale-95 flex items-center justify-center gap-3 ${
                                     backendOnline 
-                                        ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/30' 
-                                        : 'bg-slate-700 text-slate-400'
+                                        ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-2xl shadow-blue-600/40' 
+                                        : 'bg-slate-700 text-slate-500 cursor-not-allowed opacity-50'
                                 }`}
                             >
-                                {status === 'loading' ? '通訊中...' : '讀取 IC 卡'}
+                                {status === 'loading' ? (
+                                    <>Processing...</>
+                                ) : (
+                                    <>
+                                        <Icon name="zap" className="w-4 h-4 fill-current" />
+                                        Read Smart Card
+                                    </>
+                                )}
                             </button>
                         </div>
                         
-                        <div className="mt-8 p-4 bg-slate-800/50 rounded-2xl border border-slate-700/50">
-                            <h3 className="text-xs font-bold text-slate-500 uppercase mb-2 flex items-center gap-1">
-                                <Icon name="wifi" className="w-3 h-3" /> 部署說明
-                            </h3>
-                            <ul className="text-[10px] text-slate-500 space-y-1 list-disc pl-4">
-                                <li>將此檔案上傳至 GitHub 並啟用 GitHub Pages 即可公開存取。</li>
-                                <li>使用者端必須在電腦執行 Python 後端 API (localhost:5000)。</li>
-                                <li>確保後端已安裝 <code>flask-cors</code> 以允許跨網域請求。</li>
-                            </ul>
+                        {/* 頁尾底部說明 */}
+                        <div className="flex flex-col items-center gap-4 py-4">
+                            <div className="flex gap-4">
+                                <span className="text-[10px] text-slate-600 font-bold uppercase tracking-widest">Local Server: 127.0.0.1:5000</span>
+                                <span className="text-[10px] text-slate-600 font-bold uppercase tracking-widest px-2 border-l border-slate-800">CORS: Enabled</span>
+                            </div>
                         </div>
                     </div>
                 </div>
